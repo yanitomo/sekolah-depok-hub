@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Info Sekolah Depok</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f0f4f8; }
+        .loader { 
+            border: 4px solid #e5e7eb; border-top: 4px solid #2563eb; 
+            border-radius: 50%; width: 40px; height: 40px; 
+            animation: spin 1s linear infinite; margin: 20px auto; 
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <!-- NAVBAR -->
+    <nav class="bg-blue-900 text-white p-4 shadow-lg sticky top-0 z-50">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <i class="fas fa-graduation-cap text-yellow-400"></i> Sekolah Depok Hub
+            </h1>
+            <div class="flex gap-2">
+                <a href="#" onclick="window.location.reload()" class="text-xs bg-blue-800 px-3 py-2 rounded-lg hover:bg-blue-700">
+                    <i class="fas fa-sync"></i> Refresh
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- HERO -->
+    <div class="bg-blue-900 pb-20 pt-10 px-4 rounded-b-[3rem] shadow-xl text-center text-white">
+        <h2 class="text-3xl font-extrabold mb-2">Pusat Info Sekolah Depok</h2>
+        <p class="text-blue-200 opacity-80">Data Terintegrasi Google Sheets</p>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="container mx-auto p-4 -mt-10 mb-20 relative z-10">
+        
+        <!-- Search Box -->
+        <div class="bg-white p-4 rounded-2xl shadow-xl mb-6 max-w-4xl mx-auto">
+            <div class="flex flex-col md:flex-row gap-3">
+                <input type="text" id="searchInput" placeholder="Cari nama sekolah..." class="flex-grow p-3 bg-gray-50 rounded-xl border-0 ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-500">
+                <select id="stageFilter" class="p-3 bg-gray-50 rounded-xl border-0 ring-1 ring-gray-200">
+                    <option value="">Semua Jenjang</option>
+                    <option value="SD">SD</option>
+                    <option value="SMP">SMP</option>
+                    <option value="SMA">SMA/SMK</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- State Handling -->
+        <div id="loading" class="text-center bg-white p-10 rounded-3xl shadow-xl max-w-sm mx-auto">
+            <div class="loader"></div>
+            <p class="text-gray-600 font-medium">Mengambil Data...</p>
+        </div>
+
+        <div id="errorMsg" class="hidden text-center bg-white p-8 rounded-3xl shadow-xl border border-red-100 max-w-lg mx-auto">
+            <div class="bg-red-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-shield-alt text-red-500 text-2xl"></i>
+            </div>
+            <h3 class="text-xl font-bold text-gray-800 mb-2">Akses Data Terhambat</h3>
+            <p id="errorTxt" class="text-gray-500 mb-6 text-sm">Pesan Kesalahan Akan Muncul Di Sini.</p>
+            <div class="p-4 bg-yellow-50 rounded-xl text-left text-xs text-yellow-800 mb-4">
+                <strong>Cara Memperbaiki:</strong>
+                <ul class="list-decimal ml-4 mt-2 space-y-1">
+                    <li>Pastikan Google Sheets sudah di-klik <b>File > Share > Publish to Web</b>.</li>
+                    <li>Pilih format <b>Comma-separated values (.csv)</b> saat publish.</li>
+                    <li>Jika Anda membuka file ini dari folder (C:\...), Anda harus menguploadnya ke internet (seperti GitHub Pages) agar data bisa muncul.</li>
+                </ul>
+            </div>
+            <button onclick="window.location.reload()" class="bg-blue-600 text-white px-8 py-2 rounded-full font-bold">Coba Lagi</button>
+        </div>
+
+        <!-- School Grid -->
+        <div id="schoolList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 hidden"></div>
+        <p id="dataCount" class="text-center text-gray-400 text-sm mt-8 hidden"></p>
+    </div>
+
+    <!-- MODAL DETAIL -->
+    <div id="detailModal" class="fixed inset-0 bg-black/60 hidden flex items-center justify-center z-[100] p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-3xl w-full max-w-lg overflow-hidden">
+            <div class="bg-blue-600 p-6 text-white flex justify-between items-start">
+                <h3 id="modalName" class="text-xl font-bold leading-tight pr-6">Nama Sekolah</h3>
+                <button onclick="closeModal()" class="text-white/80 hover:text-white"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div class="flex gap-2">
+                    <span id="modalStage" class="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold uppercase"></span>
+                    <span id="modalNPSN" class="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-bold"></span>
+                </div>
+                <div>
+                    <p class="text-[10px] text-gray-400 font-bold uppercase">Alamat</p>
+                    <p id="modalAddress" class="text-gray-700 text-sm">-</p>
+                </div>
+                <div class="pt-4">
+                    <a id="btnMaps" href="#" target="_blank" class="w-full flex items-center justify-center gap-2 bg-blue-600 text-white py-3 rounded-xl font-bold">
+                        <i class="fas fa-map-marker-alt"></i> Buka Petunjuk Jalan
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const URL_DATA_INDUK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRZG9phJEFoDarXmWEfy9rADhrk_OrDwXeRXvTPTES07UioRqwJeXSEuaIFhaY4Fg/pub?gid=1661834458&single=true&output=csv";
+        
+        let schoolsData = [];
+
+        async function initApp() {
+            const loading = document.getElementById('loading');
+            const errorMsg = document.getElementById('errorMsg');
+            const errorTxt = document.getElementById('errorTxt');
+
+            // Cek jika dibuka secara lokal (file://)
+            if (window.location.protocol === 'file:') {
+                loading.classList.add('hidden');
+                errorMsg.classList.remove('hidden');
+                errorTxt.innerHTML = "<b>Deteksi Keamanan:</b> Anda membuka file ini langsung dari folder komputer. Browser memblokir pengambilan data dari Google Sheets demi keamanan.<br><br>Mohon gunakan <b>Live Server</b> atau <b>Upload ke Internet</b>.";
+                return;
+            }
+
+            try {
+                const response = await fetch(URL_DATA_INDUK + "&t=" + Date.now());
+                if (!response.ok) throw new Error("Gagal mengambil data dari Google Sheets. Pastikan link Publish to Web benar.");
+                
+                const csvText = await response.text();
+                
+                Papa.parse(csvText, {
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: function(results) {
+                        const rawData = results.data;
+                        
+                        // Pemetaan data yang fleksibel (mencari kolom meski huruf besar/kecil beda)
+                        schoolsData = rawData.map(row => {
+                            const find = (keys) => {
+                                const k = Object.keys(row).find(rk => keys.includes(rk.toLowerCase().trim()));
+                                return k ? row[k] : '';
+                            };
+                            return {
+                                name: find(['nama', 'nama sekolah', 'satuan pendidikan']),
+                                npsn: find(['npsn']),
+                                stage: find(['bentuk', 'jenjang', 'bentuk pendidikan']),
+                                district: find(['kecamatan', 'kec']),
+                                address: find(['alamat', 'alamat jalan'])
+                            };
+                        }).filter(s => s.name); // Buang baris yang tidak ada nama sekolahnya
+
+                        if (schoolsData.length === 0) {
+                            throw new Error("Data ditemukan tetapi format kolom tidak sesuai (Pastikan ada kolom Nama dan NPSN).");
+                        }
+
+                        loading.classList.add('hidden');
+                        document.getElementById('schoolList').classList.remove('hidden');
+                        renderSchools(schoolsData);
+                    },
+                    error: function(err) {
+                        throw new Error("Format CSV tidak terbaca.");
+                    }
+                });
+
+            } catch (e) {
+                loading.classList.add('hidden');
+                errorMsg.classList.remove('hidden');
+                errorTxt.innerText = e.message;
+            }
+        }
+
+        function renderSchools(data) {
+            const list = document.getElementById('schoolList');
+            list.innerHTML = '';
+            
+            data.slice(0, 50).forEach(school => {
+                list.innerHTML += `
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer" onclick="openDetail('${school.name.replace(/'/g, "\\'")}')">
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="text-[10px] font-bold px-2 py-1 bg-blue-100 text-blue-700 rounded">${school.stage || 'SEKOLAH'}</span>
+                            <span class="text-[10px] text-gray-400">NPSN: ${school.npsn}</span>
+                        </div>
+                        <h3 class="font-bold text-gray-800 mb-1">${school.name}</h3>
+                        <p class="text-xs text-gray-500 flex items-center gap-1">
+                            <i class="fas fa-map-marker-alt text-gray-300"></i> ${school.district || 'Depok'}
+                        </p>
+                    </div>
+                `;
+            });
+            
+            const count = document.getElementById('dataCount');
+            count.innerText = `Ditemukan ${data.length} sekolah`;
+            count.classList.remove('hidden');
+        }
+
+        function openDetail(name) {
+            const s = schoolsData.find(i => i.name === name);
+            if(!s) return;
+            document.getElementById('modalName').innerText = s.name;
+            document.getElementById('modalNPSN').innerText = `NPSN: ${s.npsn}`;
+            document.getElementById('modalStage').innerText = s.stage;
+            document.getElementById('modalAddress').innerText = s.address || 'Alamat tidak tersedia di database.';
+            document.getElementById('btnMaps').href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.name + ' ' + s.district + ' Depok')}`;
+            
+            const modal = document.getElementById('detailModal');
+            modal.classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('detailModal').classList.add('hidden');
+        }
+
+        // Jalankan saat halaman siap
+        window.addEventListener('load', initApp);
+
+        // Fitur Pencarian Sederhana
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            const val = e.target.value.toLowerCase();
+            const filtered = schoolsData.filter(s => s.name.toLowerCase().includes(val));
+            renderSchools(filtered);
+        });
+    </script>
+</body>
+</html>
